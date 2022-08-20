@@ -102,3 +102,10 @@ dist
 
 # TernJS port file
 .tern-port
+
+# DS Store
+.DS_Store
+
+# Static Data
+static_data/
+cached_data/
