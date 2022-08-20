@@ -1,0 +1,16 @@
+{
+  "name": "translink_parser",
+  "version": "1.0.0",
+  "description": "",
+  "main": "tramslink_parser.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Wishnu Hazmi Lazuardi",
+  "license": "ISC",
+  "dependencies": {
+    "node-fetch": "^3.2.10",
+    "prompt-sync": "^4.2.0"
+  },
+  "type": "module"
+}
