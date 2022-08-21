@@ -16,7 +16,7 @@ import fs from "fs/promises";
 // [x] Read & Write for tripUpdates raw data
 // [x] Read & Write for vehiclePositions raw data
 // [x] Read & Write for alerts raw data
-// [ ] Update cache by the timestamp (every 10 minutes)
+// [x] Update cache by the timestamp (every 10 minutes)
 // [ ] Combine only filtered data
 // [ ] Show filtered data
 
@@ -40,18 +40,19 @@ const TRIP_UPDATES_FILENAME = `${CACHE_DATA_PATH}/tripUpdates.json`
 const VEHICLE_POSITIONS_FILENAME = `${CACHE_DATA_PATH}/vehiclePositions.json`
 const ALERTS_FILENAME = `${CACHE_DATA_PATH}/alerts.json`
 
+const CACHE_INTERVAL = 5
 
 
 async function main() {
 
 
     /**
-    * This function will validate whether the cache is expired or not
-    * @param {number} date - The string to append to the JSON filename.
-    * @param {number} time - The string to append to the JSON filename.
-    * @returns {bool} true if not expired
+    * This function will validate whether the inputs are valid or not using Date.parse()
+    * @param {number} date - The string of date that the user inputs (YYYY-MM-DD).
+    * @param {number} time - The string of time that the user inputs (HH:mm).
+    * @returns {bool} true if the inputs are valid
     */
-    function isValidDateTime(date, time) {
+    function validateInput(date, time) {
         // Check if date and time are number and is correctly formatted
         if (isNaN(date) && !date.includes('-') || isNaN(time) && !time.includes(':')) return false
 
@@ -62,15 +63,28 @@ async function main() {
         return !isNaN(Date.parse(tempDateTimeAppended));
     }
 
+
+
     /**
     * This function will validate whether the cache is expired or not
     * @param {number} dataTimestamp - The string to append to the JSON filename.
     * @returns {bool} true if not expired
     */
     function validateCache(dataTimestamp) {
+        // Get current DateTime as miliseconds
         let currentDateTime = new Date()
-        console.log(currentDateTime)
-        return currentDateTime < 600000
+        console.log('current ', currentDateTime)
+
+        // Get timestamp as miliseconds
+        let cacheDateTime = new Date(dataTimestamp)
+        console.log('cache ', cacheDateTime)
+
+        // Subtract timestamp with currentDateTime
+        let cacheAge = (currentDateTime.getTime() - cacheDateTime.getTime())
+        console.log('age ', cacheAge / (1000 * 60))
+
+        // Return true if minutes < 5
+        return (cacheAge / (1000 * 60)) < CACHE_INTERVAL
 
     }
 
@@ -80,52 +94,72 @@ async function main() {
     }
 
     async function processData(dateTime) {
-        console.log("loading...")
 
         let tripUpdates;
         let vehiclePositions;
         let alerts;
+
         let mergedData = []
 
-        let tripUpdatesCached = await readCache(TRIP_UPDATES_FILENAME)
-        let vehiclePositionsCached = await readCache(VEHICLE_POSITIONS_FILENAME)
-        let alertsCached = await readCache(ALERTS_FILENAME)
+        let isValidCacheTripUpdates;
+        let isValidCacheVehiclePositions;
+        let isValidCacheAlerts;
 
+        let tripUpdatesCached;
+        let vehiclePositionsCached;
+        let alertsCached;
+        await readCache(TRIP_UPDATES_FILENAME).then(res => {
+            tripUpdatesCached = res
+            isValidCacheTripUpdates = validateCache(parseInt(res.header.timestamp) * 1000)
+        })
+        await readCache(VEHICLE_POSITIONS_FILENAME).then(res => {
+            vehiclePositionsCached = res
+            isValidCacheVehiclePositions = validateCache(parseInt(res.header.timestamp) * 1000)
+        })
+        await readCache(ALERTS_FILENAME).then(res => {
+            alertsCached = res
+            isValidCacheAlerts = validateCache(parseInt(res.header.timestamp) * 1000)
+        })
 
-        // TODO
-        // Validate cache timestamp
+        const isValidCache = isValidCacheTripUpdates && isValidCacheVehiclePositions && isValidCacheAlerts
+        // console.log('all cache validity: ', isValidCache)
+
         // Load from cache else fetch from API
-        if (tripUpdatesCached && vehiclePositionsCached && alertsCached) {
-            console.log('data from cache...')
-            console.log(JSON.parse(tripUpdatesCached))
-            console.log(JSON.parse(vehiclePositionsCached))
-            console.log(JSON.parse(alertsCached))
-        } else {
+        if (!(tripUpdatesCached && vehiclePositionsCached && alertsCached && isValidCache)) {
             // Fetch all data from API
             // Fetch trip updates data
             await fetchData(TRIP_UPDATES_URL)
                 .then(res => {
                     tripUpdates = res.entity;
-                    console.log(tripUpdates);
+                    console.log('res trip from API', tripUpdates)
                     saveCache(TRIP_UPDATES_FILENAME, res)
-                }).catch(e => console.log(e))
+                })
 
             // Fetch vehicle positions data
             await fetchData(VEHICLE_POSITIONS_URL)
                 .then(res => {
                     vehiclePositions = res.entity;
-                    console.log(vehiclePositions);
+                    //
                     saveCache(VEHICLE_POSITIONS_FILENAME, res)
-                }).catch(e => console.log(e))
+                })
 
             // Fetch alerts data
             await fetchData(ALERTS_URL)
                 .then(res => {
                     alerts = res.entity;
-                    console.log(alerts);
+                    //
                     saveCache(ALERTS_FILENAME, res)
-                }).catch(e => console.log(e))
+                })
+        } else {
+            console.log('res trip from json', tripUpdatesCached)
         }
+
+
+        // TODO:
+        // [ ] Merge data based on properties
+        // [ ] Sort data based on departure / arrival date
+        // [ ] Filter data only for 1 hour from current date
+
 
         return mergedData;
     }
@@ -133,19 +167,19 @@ async function main() {
     async function saveCache(filename, data) {
         try {
             await fs.writeFile(filename, JSON.stringify(data))
-            console.log('writing to cache')
+            //
         } catch (error) {
-            console.log(error)
+            //
         }
     }
 
     async function readCache(filename) {
         try {
-            const data = await fs.readFile(filename);
-            console.log('reading from cache')
-            return data;
+            const data = await fs.readFile(filename, "utf8");
+            //
+            return JSON.parse(data);
         } catch (error) {
-            console.log(error)
+            //
         }
     }
 
@@ -153,7 +187,7 @@ async function main() {
     while (true) {
 
         // Show greeting
-        console.log(GREETING_MESSAGE)
+        //
 
         // Obtain user input and validate it
         while (true) {
@@ -163,16 +197,17 @@ async function main() {
             // Prompt "What time will you depart UQ Lakes station by bus?"
             const timeInput = prompt(TIME_PROMPT)
 
-            if (isValidDateTime(dateInput, timeInput)) {
-                console.log("valid date")
+            const isValidInput = validateInput(dateInput, timeInput)
+            if (isValidInput) {
+                //
                 break;
             }
-            console.log(INVALID_DATE_MESSAGE)
+            //
         }
 
         await processData(12)
             .then(res => {
-                // console.log(res)
+                // //
                 // Prompt "Would you like to search again?"
                 isSearchAgain = prompt(QUIT_APP_PROMPT)
             })
@@ -187,7 +222,7 @@ async function main() {
         // - The love geographic location of the vehicle
 
         if (isSearchAgain && isSearchAgain == 'n') {
-            console.log(GOODBYE_MESSAGE)
+            //
             break;
         }
 
