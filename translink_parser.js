@@ -88,6 +88,8 @@ async function main() {
 
     }
 
+    
+
     async function fetchData(url) {
         const response = await fetch(url)
         return response.json();
