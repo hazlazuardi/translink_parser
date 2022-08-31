@@ -44,6 +44,11 @@ const VEHICLE_POSITIONS_FILENAME = `${CACHE_DATA_PATH}/vehiclePositions.json`
 const ALERTS_FILENAME = `${CACHE_DATA_PATH}/alerts.json`
 const STATIC_TRIPS_FILENAME = `${STATIC_DATA_PATH}/trips.txt`
 const STATIC_ROUTES_FILENAME = `${STATIC_DATA_PATH}/routes.txt`
+const FILTERED_DATA_PATH = './filtered_data';
+const FILTERED_TRIP_UPDATES_FILENAME = `${FILTERED_DATA_PATH}/trip_updates_api.json`
+const FILTERED_TRIPS_CSV_FILENAME = `${FILTERED_DATA_PATH}/trips_csv.json`
+const FILTERED_ROUTES_CSV_FILENAME = `${FILTERED_DATA_PATH}/routes_csv.json`
+const FILTERED_TRIP_UPDATES_API_FILENAME = `${FILTERED_DATA_PATH}/trip_updates_api.json`
 
 const CACHE_INTERVAL = 5
 
@@ -75,16 +80,18 @@ async function main() {
     // console.log('csvtrip', routesCSV.slice(1))
 
 
-    // route_id, service_id, trip_id
-    const filteredTripsCSV = filterCSVByName("UQ Lakes station", tripsCSV, 3);
-    // Function to filter csv by name
+    // Function to filter trips.txt by name
     function filterCSVByName(stationName, csvArray, stationNameIndex) {
         return csvArray.filter((ar) => ar[stationNameIndex].includes(stationName))
     }
+    // route_id, service_id, trip_id
+    const filteredTripsCSV = filterCSVByName("UQ Lakes station", tripsCSV, 3);
     // console.log('filteredcsv', filteredTripsCSV)
+    await saveCache(FILTERED_TRIPS_CSV_FILENAME, filteredTripsCSV)
+        .catch(e => console.log("can't save cache filter", e))
 
 
-    // Filter routes.txt by routeId to get short_name & long_name
+    // Function to filter routes.txt by routeId to get short_name & long_name
     function filterByRouteID(csvArray, referenceArray) {
         const referenceRouteId = referenceArray.map(arr => arr[0])
         // console.log('refRoute', referenceRouteId)
@@ -100,10 +107,12 @@ async function main() {
         "route_short_name": route[1],
         "route_long_name": route[2]
     }))
-    console.log('from routes.txt', routesTxtNeeded);
+    // console.log('from routes.txt', routesTxtNeeded);
+    await saveCache(FILTERED_ROUTES_CSV_FILENAME, filteredRoutesCSV)
+        .catch(e => console.log("can't save cache filter", e))
 
 
-    // Filter tripUpdates by route_id from filtered trips.txt
+    // Function to filter TripUpdates API by route_id from filtered trips.txt
     function filterTripUpdatesByRouteID(resAPI, referenceArray) {
         const referenceId = referenceArray.map(arr => arr[0]);
         // console.log('ref but id only', referenceId);
@@ -116,13 +125,37 @@ async function main() {
         })
     }
     // Trip Updates api filtered
-    const filteredTripUpdatesAPI = filterTripUpdatesByRouteID(tripUpdatesResponse, filteredTripsCSV)
+    const filteredTripUpdatesRouteIdAPI = filterTripUpdatesByRouteID(tripUpdatesResponse, filteredTripsCSV)
     // console.log("unfilteredTripUpdatesAPI", tripUpdatesResponse.entity.length)
-    // console.log("filteredTripUpdatesAPI", filteredTripUpdatesAPI)
-    await saveCache("filtered_trips_UQLakes.json", filteredTripUpdatesAPI)
+    // console.log("filteredTripUpdatesRouteIdAPI", filteredTripUpdatesRouteIdAPI)
+    await saveCache(FILTERED_TRIP_UPDATES_API_FILENAME, filteredTripUpdatesRouteIdAPI)
         .catch(e => console.log("can't save cache filter", e))
 
-    mergedData = filteredTripUpdatesAPI.map(trip => ({
+
+    function filterTripUpdatesByStopId(resAPI, stopId) {
+        return resAPI.entity?.filter(trip => trip.tripUpdate?.stopTimeUpdate?.some(stop => stop.stopId === stopId))
+    }
+    const filteredTripUpdatesStopIdAPI = filterTripUpdatesByStopId(tripUpdatesResponse, "1882")
+    console.log('raw', filteredTripUpdatesRouteIdAPI.length)
+    console.log('by stopId', filteredTripUpdatesStopIdAPI.length)
+    await saveCache("filteredTripUpdatesStopIdAPI.json", filteredTripUpdatesStopIdAPI)
+
+
+    // arrayOfElements.map((element) => {
+    //     return { ...element, subElements: element.subElements.filter((subElement) => subElement.surname === 1) }
+    // })
+
+
+    // function filterTripUpdatesByDate(filteredArray, date) {
+    //     return filteredArray.filter(trip => {
+    //         const referenceArrival = trip.tripUpdate.stopTimeUpdate.map(stop => stop.arrival?.time);
+    //         console.log('refAr', referenceArrival)
+    //         return referenceArrival.includes(date)
+    //     })
+    // }
+    // console.log(filterTripUpdatesByDate(filteredTripUpdatesRouteIdAPI, new Date()))
+
+    mergedData = filteredTripUpdatesRouteIdAPI.map(trip => ({
         "tripId": trip.tripUpdate.trip.tripId,
         "routeId": trip.tripUpdate.trip.routeId,
         "vehicle": trip.tripUpdate.vehicle,
