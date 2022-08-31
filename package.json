@@ -9,6 +9,7 @@
   "author": "Wishnu Hazmi Lazuardi",
   "license": "ISC",
   "dependencies": {
+    "csv-parse": "^5.3.0",
     "node-fetch": "^3.2.10",
     "prompt-sync": "^4.2.0"
   },
