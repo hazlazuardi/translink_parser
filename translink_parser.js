@@ -46,25 +46,31 @@ const MERGED_DATA = `${FILTERED_DATA_PATH}/merged.json`
 const CACHE_INTERVAL = 5
 
 const STATION_STOP_ID = "1882";
-const INPUT_DATE = 1662018000;
+var INPUT_DATE;
+var DATE_INPUT;
+var TIME_INPUT;
 
 
 async function main() {
 
     // Read from cache
     let tripUpdatesResponse;
+    let isValidCacheTripUpdates;
     await readCache(TRIP_UPDATES_FILENAME)
         .then(res => {
             tripUpdatesResponse = JSON.parse(res)
-            // console.log("read cache", res)
+            isValidCacheTripUpdates = validateCache(parseInt(tripUpdatesResponse.header?.timestamp) * 1000)
+            console.log("read cache", tripUpdatesResponse.header)
         })
         .catch(e => console.log("Can't read from cache", e))
     // console.log('res from cache', tripUpdatesResponse)
 
     let vehiclePositionsResponse;
+    let isValidCacheVehiclePositions;
     await readCache(VEHICLE_POSITIONS_FILENAME)
         .then(res => {
             vehiclePositionsResponse = JSON.parse(res)
+            isValidCacheVehiclePositions = validateCache(parseInt(vehiclePositionsResponse.header?.timestamp) * 1000)
             // console.log("read cache", res)
         })
         .catch(e => console.log("Can't read from cache", e))
@@ -111,10 +117,10 @@ async function main() {
                 )
             ))
     }
-    const refArrayFromTripUpdatesAPI = filterTripUpdatesByStopIdAndDate(tripUpdatesResponse, STATION_STOP_ID, INPUT_DATE)
+    // const refArrayFromTripUpdatesAPI = filterTripUpdatesByStopIdAndDate(tripUpdatesResponse, STATION_STOP_ID, INPUT_DATE)
     // console.log('raw', tripUpdatesResponse.entity.length)
     // console.log('filter', refArrayFromTripUpdatesAPI.length)
-    await saveCache(FILTERED_TRIP_UPDATES_API_BY_STOPID_DATE_FILENAME, refArrayFromTripUpdatesAPI)
+    // await saveCache(FILTERED_TRIP_UPDATES_API_BY_STOPID_DATE_FILENAME, refArrayFromTripUpdatesAPI)
 
 
     // Part 2
@@ -132,10 +138,10 @@ async function main() {
             })
         })
     }
-    const scheduledArrivalTime = filterScheduledArrivalTime(stopTimesCSV, refArrayFromTripUpdatesAPI);
-    console.log('raw', stopTimesCSV.length)
-    console.log('filter', scheduledArrivalTime.length)
-    await saveCache(SCHEDULED_ARRIVAL_TIME, scheduledArrivalTime)
+    // const scheduledArrivalTime = filterScheduledArrivalTime(stopTimesCSV, refArrayFromTripUpdatesAPI);
+    // console.log('raw', stopTimesCSV.length)
+    // console.log('filter', scheduledArrivalTime.length)
+    // await saveCache(SCHEDULED_ARRIVAL_TIME, scheduledArrivalTime)
 
 
     // Part 3
@@ -151,10 +157,10 @@ async function main() {
             })
         })
     }
-    const routeNames = filterRouteNames(routesCSV, refArrayFromTripUpdatesAPI);
-    console.log('raw', routesCSV.length)
-    console.log('filter', routeNames.length)
-    await saveCache(ROUTE_NAMES, routeNames)
+    // const routeNames = filterRouteNames(routesCSV, refArrayFromTripUpdatesAPI);
+    // console.log('raw', routesCSV.length)
+    // console.log('filter', routeNames.length)
+    // await saveCache(ROUTE_NAMES, routeNames)
 
 
     // Part 4
@@ -175,10 +181,10 @@ async function main() {
             })
         })
     }
-    const serviceIdAndTripHeadsign = filterServiceIdAndTripHeadsign(tripsCSV, refArrayFromTripUpdatesAPI);
-    console.log('raw', tripsCSV.length)
-    console.log('filter', serviceIdAndTripHeadsign.length)
-    await saveCache(SERVICE_ID_TRIP_HEADSIGN, serviceIdAndTripHeadsign)
+    // const serviceIdAndTripHeadsign = filterServiceIdAndTripHeadsign(tripsCSV, refArrayFromTripUpdatesAPI);
+    // console.log('raw', tripsCSV.length)
+    // console.log('filter', serviceIdAndTripHeadsign.length)
+    // await saveCache(SERVICE_ID_TRIP_HEADSIGN, serviceIdAndTripHeadsign)
 
 
     // Part 5
@@ -196,39 +202,35 @@ async function main() {
             })
         })
     }
-    const vehiclePosition = filterVehiclePosition(vehiclePositionsResponse.entity, refArrayFromTripUpdatesAPI);
-    console.log('raw', vehiclePositionsResponse.entity.length)
-    console.log('filter', vehiclePosition.length)
-    await saveCache(VEHICLE_POSITION, vehiclePosition)
+    // const vehiclePosition = filterVehiclePosition(vehiclePositionsResponse.entity, refArrayFromTripUpdatesAPI);
+    // console.log('raw', vehiclePositionsResponse.entity.length)
+    // console.log('filter', vehiclePosition.length)
+    // await saveCache(VEHICLE_POSITION, vehiclePosition)
 
 
     // Part 6
     // Function to merge all results
     function mergeAllData(targetArray, sourceArray) {
-
         const arr1 = targetArray
-
         const arr2 = sourceArray
-
-        const arr3 = arr1.map((item, i) => Object.assign({}, item, arr2[i]));
-
-        // console.log(arr1)
-        // console.log(arr2)
-        // console.log(arr3);
-        return arr3;
+        return arr1.map((item, i) => Object.assign({}, item, arr2[i]));
     }
-    const mergePart1And2 = mergeAllData(scheduledArrivalTime, routeNames)
-    // console.log(mergePart1And2)
-    const mergePart12And3 = mergeAllData(mergePart1And2, serviceIdAndTripHeadsign)
-    const mergeVehiclePositions = mergeAllData(mergePart12And3, vehiclePosition)
-    await saveCache(MERGED_DATA, mergeVehiclePositions)
+    // const mergePart1And2 = mergeAllData(scheduledArrivalTime, routeNames)
+    // // console.log(mergePart1And2)
+    // const mergePart12And3 = mergeAllData(mergePart1And2, serviceIdAndTripHeadsign)
+    // const mergeVehiclePositions = mergeAllData(mergePart12And3, vehiclePosition)
+    // await saveCache(MERGED_DATA, mergeVehiclePositions)
 
-    console.table(mergeVehiclePositions, ['tripHeadsign', 'liveArrivalTime', 'scheduledArrivalTime', 'routeShortName', 'routeLongName', 'serviceId', 'position'])
-
-
+    // console.table(mergeVehiclePositions, ['tripHeadsign', 'liveArrivalTime', 'scheduledArrivalTime', 'routeShortName', 'routeLongName', 'serviceId', 'position'])
 
 
 
+
+
+
+    function setInputDateTime(dateTime) {
+        return
+    }
 
 
     /**
@@ -248,21 +250,10 @@ async function main() {
         return !isNaN(Date.parse(tempDateTimeAppended));
     }
 
-
-    function checkLessThanInterval(inputDate, dataDate, interval) {
-        try {
-            console.log('dataDate', dataDate)
-            console.log('inputDate', inputDate)
-            console.log(dataDate < inputDate + interval)
-            return dataDate < inputDate + interval
-        } catch (e) {
-            console.log('dataDate', dataDate)
-            console.log('inputDate', inputDate)
-            console.log(parseInt(dataDate) < parseInt(inputDate) + parseInt(interval))
-            return parseInt(dataDate) <= parseInt(inputDate) + parseInt(interval)
-        }
+    function toEpoch(date, time) {
+        console.log('toEpochFunc', new Date(date + 'T' + time) / 1000)
+        return new Date(date + 'T' + time) / 1000
     }
-
 
     /**
     * This function will validate whether the cache is expired or not
@@ -301,46 +292,15 @@ async function main() {
         let vehiclePositions;
         let alerts;
 
-        let mergedData = []
-
-        let isValidCacheTripUpdates;
-        let isValidCacheVehiclePositions;
-        let isValidCacheAlerts;
 
         let tripUpdatesCached;
-        let vehiclePositionsCached;
-        let alertsCached;
-        // await readCache(TRIP_UPDATES_FILENAME)
-        //     .then(res => {
-        //         tripUpdatesCached = res
-        //         isValidCacheTripUpdates = validateCache(parseInt(res?.header?.timestamp) * 1000)
-        //     })
-        //     .catch(e => {
-        //         console.log("Can't read trip cache", e)
-        //     })
-        // await readCache(VEHICLE_POSITIONS_FILENAME).then(res => {
-        //     vehiclePositionsCached = res
-        //     isValidCacheVehiclePositions = validateCache(parseInt(res.header.timestamp) * 1000)
-        // })
-        //     .catch(e => {
-        //         console.log("Can't read vehicle cache")
-        //     })
 
-        // await readCache(ALERTS_FILENAME).then(res => {
-        //     alertsCached = res
-        //     isValidCacheAlerts = validateCache(parseInt(res.header.timestamp) * 1000)
-        // })
-        //     .catch(e => {
-        //         console.log("Can't read alert cache")
-        //     })
-
-
-        // const isValidCache = isValidCacheTripUpdates && isValidCacheVehiclePositions && isValidCacheAlerts
-        // console.log('all cache validity: ', isValidCache)
+        const isValidCache = isValidCacheTripUpdates && isValidCacheVehiclePositions
+        console.log('all cache validity: ', isValidCache)
 
         // Load from cache else fetch from API
         // if (!(tripUpdatesCached && vehiclePositionsCached && alertsCached && isValidCache)) {
-        if (false) {
+        if (!isValidCache) {
             // Fetch all data from API
             // Fetch trip updates data
             await fetchData(TRIP_UPDATES_URL)
@@ -375,16 +335,25 @@ async function main() {
                     console.log("Can't Fetch Vehicle Positions from API", e)
                 })
         } else {
-            // console.log('res trip from json', tripUpdatesCached)
+            console.log('res trip updates from json');
+            console.log('res vehicle positions from json');
         }
 
+        const refArrayFromTripUpdatesAPI = filterTripUpdatesByStopIdAndDate(tripUpdatesResponse, STATION_STOP_ID, dateTime);
+        const scheduledArrivalTime = filterScheduledArrivalTime(stopTimesCSV, refArrayFromTripUpdatesAPI);
+        const routeNames = filterRouteNames(routesCSV, refArrayFromTripUpdatesAPI);
+        const serviceIdAndTripHeadsign = filterServiceIdAndTripHeadsign(tripsCSV, refArrayFromTripUpdatesAPI);
+        const vehiclePosition = filterVehiclePosition(vehiclePositionsResponse.entity, refArrayFromTripUpdatesAPI);
+        const mergePart1And2 = mergeAllData(scheduledArrivalTime, routeNames)
+        const mergePart12And3 = mergeAllData(mergePart1And2, serviceIdAndTripHeadsign)
+        const mergeVehiclePositions = mergeAllData(mergePart12And3, vehiclePosition)
+        const mergedData = mergeAllData(mergeAllData(mergeAllData(scheduledArrivalTime, routeNames), serviceIdAndTripHeadsign), vehiclePosition)
+        await saveCache(MERGED_DATA, mergedData)
 
-        // TODO:
-        // [ ] Merge data based on properties
-        // [ ] Sort data based on departure / arrival date
-        // [ ] Filter data only for 1 hour from current date
 
-        return tripUpdatesCached;
+
+
+        return mergeVehiclePositions;
     }
 
     async function saveCache(filename, data) {
@@ -412,26 +381,35 @@ async function main() {
     let isSearchAgain = null
     while (true) {
 
+        // let input;
         // Show greeting
 
         // Obtain user input and validate it
         while (true) {
             // Prompt "What date will you depart UQ Lakes station by bus?"
-            const dateInput = prompt(DATE_PROMPT)
+            DATE_INPUT = prompt(DATE_PROMPT)
 
             // Prompt "What time will you depart UQ Lakes station by bus?"
-            const timeInput = prompt(TIME_PROMPT)
+            TIME_INPUT = prompt(TIME_PROMPT)
 
-            const isValidInput = validateInput(dateInput, timeInput)
+            const isValidInput = validateInput(DATE_INPUT, TIME_INPUT)
             if (isValidInput) {
-                //
+                INPUT_DATE = toEpoch(DATE_INPUT, TIME_INPUT)
                 break;
             }
+
             //
         }
 
-        await processData(12)
+        await processData(INPUT_DATE)
             .then(res => {
+                console.log('inputEpoch', INPUT_DATE)
+                console.table(res, ['tripHeadsign', 'liveArrivalTime', 'scheduledArrivalTime', 'routeShortName', 'routeLongName', 'serviceId', 'position'])
+
+
+
+
+
                 isSearchAgain = prompt(QUIT_APP_PROMPT)
             })
 
