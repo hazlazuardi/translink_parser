@@ -9,20 +9,6 @@ import fs from 'fs';
 import { parse as csv } from "csv-parse";
 
 
-
-// TODO
-// [x] Input validations
-// [x] Fetch all three endpoints
-// [x] Caching for tripUpdates raw data
-// [x] Caching for vehiclePositions raw data
-// [x] Caching for alerts raw data
-// [x] Read & Write for tripUpdates raw data
-// [x] Read & Write for vehiclePositions raw data
-// [x] Read & Write for alerts raw data
-// [x] Update cache by the timestamp (every 10 minutes)
-// [ ] Combine only filtered data
-// [ ] Show filtered data
-
 // Endpoints
 const TRIP_UPDATES_URL = 'http://127.0.0.1:5343/gtfs/seq/trip_updates.json';
 const VEHICLE_POSITIONS_URL = 'http://127.0.0.1:5343/gtfs/seq/vehicle_positions.json';
@@ -44,22 +30,26 @@ const VEHICLE_POSITIONS_FILENAME = `${CACHE_DATA_PATH}/vehiclePositions.json`
 const ALERTS_FILENAME = `${CACHE_DATA_PATH}/alerts.json`
 const STATIC_TRIPS_FILENAME = `${STATIC_DATA_PATH}/trips.txt`
 const STATIC_ROUTES_FILENAME = `${STATIC_DATA_PATH}/routes.txt`
+const STATIC_STOP_TIMES_FILENAME = `${STATIC_DATA_PATH}/stop_times.txt`
+
+// filtered data
 const FILTERED_DATA_PATH = './filtered_data';
-const FILTERED_TRIP_UPDATES_FILENAME = `${FILTERED_DATA_PATH}/trip_updates_api.json`
-const FILTERED_TRIPS_CSV_FILENAME = `${FILTERED_DATA_PATH}/trips_csv.json`
-const FILTERED_ROUTES_CSV_FILENAME = `${FILTERED_DATA_PATH}/routes_csv.json`
-const FILTERED_TRIP_UPDATES_API_FILENAME = `${FILTERED_DATA_PATH}/trip_updates_api.json`
+const FILTERED_TRIP_UPDATES_API_BY_STOPID_DATE_FILENAME = `${FILTERED_DATA_PATH}/trip_updates_stopId_date_api.json`
+const SCHEDULED_ARRIVAL_TIME = `${FILTERED_DATA_PATH}/scheduledArrivalTime.json`
+const ROUTE_NAMES = `${FILTERED_DATA_PATH}/routeNames.json`
+const SERVICE_ID_TRIP_HEADSIGN = `${FILTERED_DATA_PATH}/serviceId_tripHeadsign.json`
+const VEHICLE_POSITION = `${FILTERED_DATA_PATH}/vehiclePositions_filtered.json`
+const MERGED_DATA = `${FILTERED_DATA_PATH}/merged.json`
+
+
 
 const CACHE_INTERVAL = 5
 
+const STATION_STOP_ID = "1882";
+const INPUT_DATE = 1662018000;
+
 
 async function main() {
-
-    // let referenceArray = [];
-    // let referenceArrayID = [];
-
-    let mergedData;
-
 
     // Read from cache
     let tripUpdatesResponse;
@@ -71,101 +61,173 @@ async function main() {
         .catch(e => console.log("Can't read from cache", e))
     // console.log('res from cache', tripUpdatesResponse)
 
+    let vehiclePositionsResponse;
+    await readCache(VEHICLE_POSITIONS_FILENAME)
+        .then(res => {
+            vehiclePositionsResponse = JSON.parse(res)
+            // console.log("read cache", res)
+        })
+        .catch(e => console.log("Can't read from cache", e))
+    // console.log('res from cache', tripUpdatesResponse)
+
+
     // Get CSV Data from local
-    const tripsCSV = []
+    let tripsCSV = []
     await readCSV(STATIC_TRIPS_FILENAME, tripsCSV)
     // console.log('csvtrip', tripsCSV.slice(1))
-    const routesCSV = []
+    let routesCSV = []
     await readCSV(STATIC_ROUTES_FILENAME, routesCSV)
     // console.log('csvtrip', routesCSV.slice(1))
+    let stopTimesCSV = []
+    await readCSV(STATIC_STOP_TIMES_FILENAME, stopTimesCSV)
+    // console.log('stopTimesCSV', stopTimesCSV.slice(1))
 
 
-    // Function to filter trips.txt by name
-    function filterCSVByName(stationName, csvArray, stationNameIndex) {
-        return csvArray.filter((ar) => ar[stationNameIndex].includes(stationName))
+    // Part 1
+    // Function to filter Trip Updates API by stopId and Date from input
+    // It gets tripId, routeId, stopId => As the reference array
+    function filterTripUpdatesByStopIdAndDate(resAPI, stopId, date) {
+        return resAPI.entity
+            // Get the stop that stops at UQ Lakes station based on stopId
+            .filter(trip => trip.tripUpdate?.stopTimeUpdate?.
+                some(stop => stop.stopId === stopId)
+            )
+            // Put it in a new key inside trip
+            .map(trip => {
+                return Object.assign({}, trip, {
+                    'tripUpdate': {
+                        ...trip.tripUpdate,
+                        'stopTimeUpdate': "",
+                        'stopAtUQLakesStation': trip.tripUpdate?.stopTimeUpdate?.filter(
+                            stop => stop.stopId === stopId
+                        )
+                    }
+                })
+            })
+            // Filter the stops by the user input date
+            .filter(trip => trip.tripUpdate?.stopAtUQLakesStation?.every(stop =>
+                (parseInt(stop.departure?.time) >= date) && (
+                    parseInt(stop.arrival?.time) <= (date + 600)
+                )
+            ))
     }
-    // route_id, service_id, trip_id
-    const filteredTripsCSV = filterCSVByName("UQ Lakes station", tripsCSV, 3);
-    // console.log('filteredcsv', filteredTripsCSV)
-    await saveCache(FILTERED_TRIPS_CSV_FILENAME, filteredTripsCSV)
-        .catch(e => console.log("can't save cache filter", e))
+    const refArrayFromTripUpdatesAPI = filterTripUpdatesByStopIdAndDate(tripUpdatesResponse, STATION_STOP_ID, INPUT_DATE)
+    // console.log('raw', tripUpdatesResponse.entity.length)
+    // console.log('filter', refArrayFromTripUpdatesAPI.length)
+    await saveCache(FILTERED_TRIP_UPDATES_API_BY_STOPID_DATE_FILENAME, refArrayFromTripUpdatesAPI)
 
 
-    // Function to filter routes.txt by routeId to get short_name & long_name
-    function filterByRouteID(csvArray, referenceArray) {
-        const referenceRouteId = referenceArray.map(arr => arr[0])
-        // console.log('refRoute', referenceRouteId)
-        return csvArray.filter(route => {
-            return referenceRouteId.includes(route[0])
+    // Part 2
+    // Function to get scheduledArrivalTime from stop_times.txt by tripId & stopId
+    function filterScheduledArrivalTime(csvArray, referenceArray) {
+        return referenceArray.map(trip => {
+            return Object.assign({}, {
+                "tripId": trip.tripUpdate?.trip?.tripId,
+                "routeId": trip.tripUpdate?.trip?.routeId,
+                "liveArrivalTime": new Date(parseInt(trip.tripUpdate?.stopAtUQLakesStation[0]?.arrival?.time) * 1000).toLocaleTimeString('it-IT'),
+                "scheduledArrivalTime": csvArray.filter(stop =>
+                    stop[0] == trip.tripUpdate?.trip?.tripId
+                    && stop[3] == 1882
+                ).map(el => el[1]).toString()
+            })
         })
     }
-    // route_id, route_short_name, route_long_name
-    const filteredRoutesCSV = filterByRouteID(routesCSV, filteredTripsCSV);
-    // console.log('filteredRoutesCSV', filteredRoutesCSV)
-    const routesTxtNeeded = filteredRoutesCSV.map(route => ({
-        "routeId": route[0],
-        "route_short_name": route[1],
-        "route_long_name": route[2]
-    }))
-    // console.log('from routes.txt', routesTxtNeeded);
-    await saveCache(FILTERED_ROUTES_CSV_FILENAME, filteredRoutesCSV)
-        .catch(e => console.log("can't save cache filter", e))
+    const scheduledArrivalTime = filterScheduledArrivalTime(stopTimesCSV, refArrayFromTripUpdatesAPI);
+    console.log('raw', stopTimesCSV.length)
+    console.log('filter', scheduledArrivalTime.length)
+    await saveCache(SCHEDULED_ARRIVAL_TIME, scheduledArrivalTime)
 
 
-    // Function to filter TripUpdates API by route_id from filtered trips.txt
-    function filterTripUpdatesByRouteID(resAPI, referenceArray) {
-        const referenceId = referenceArray.map(arr => arr[0]);
-        // console.log('ref but id only', referenceId);
-        // console.log('res api inside filter', resAPI.entity.map(trip => trip.tripUpdate.trip.routeId))
-        // console.log('filtered by ID', resAPI?.entity?.filter(trip => {
-        //     return referenceId.includes(trip.tripUpdate?.trip?.routeId)
-        // }))
-        return resAPI?.entity?.filter(trip => {
-            return referenceId.includes(trip.tripUpdate?.trip?.routeId)
+    // Part 3
+    // Function to get routeShortName & routeLongName from routes.txt by routeId
+    function filterRouteNames(csvArray, referenceArray) {
+        return referenceArray.map(trip => {
+            // console.log(filtered)
+            return Object.assign({}, {
+                "tripId": trip.tripUpdate?.trip?.tripId,
+                "routeId": trip.tripUpdate?.trip?.routeId,
+                "routeShortName": csvArray.filter(el => el[0] == trip.tripUpdate?.trip?.routeId).map(ele => ele[1]).toString(),
+                "routeLongName": csvArray.filter(el => el[0] == trip.tripUpdate?.trip?.routeId).map(ele => ele[2]).toString(),
+            })
         })
     }
-    // Trip Updates api filtered
-    const filteredTripUpdatesRouteIdAPI = filterTripUpdatesByRouteID(tripUpdatesResponse, filteredTripsCSV)
-    // console.log("unfilteredTripUpdatesAPI", tripUpdatesResponse.entity.length)
-    // console.log("filteredTripUpdatesRouteIdAPI", filteredTripUpdatesRouteIdAPI)
-    await saveCache(FILTERED_TRIP_UPDATES_API_FILENAME, filteredTripUpdatesRouteIdAPI)
-        .catch(e => console.log("can't save cache filter", e))
+    const routeNames = filterRouteNames(routesCSV, refArrayFromTripUpdatesAPI);
+    console.log('raw', routesCSV.length)
+    console.log('filter', routeNames.length)
+    await saveCache(ROUTE_NAMES, routeNames)
 
 
-    function filterTripUpdatesByStopId(resAPI, stopId) {
-        return resAPI.entity?.filter(trip => trip.tripUpdate?.stopTimeUpdate?.some(stop => stop.stopId === stopId))
+    // Part 4
+    // Function to get serviceId & tripHeadsign from trips.txt by routeId, tripid
+    function filterServiceIdAndTripHeadsign(csvArray, referenceArray) {
+        return referenceArray.map(trip => {
+            return Object.assign({}, {
+                "tripId": trip.tripUpdate?.trip?.tripId,
+                "routeId": trip.tripUpdate?.trip?.routeId,
+                "serviceId": csvArray.filter(route =>
+                    route[0] == trip.tripUpdate?.trip?.routeId
+                    && route[2] == trip.tripUpdate?.trip?.tripId
+                ).map(ele => ele[1]).toString(),
+                "tripHeadsign": csvArray.filter(route =>
+                    route[0] == trip.tripUpdate?.trip?.routeId
+                    && route[2] == trip.tripUpdate?.trip?.tripId
+                ).map(ele => ele[3]).toString(),
+            })
+        })
     }
-    const filteredTripUpdatesStopIdAPI = filterTripUpdatesByStopId(tripUpdatesResponse, "1882")
-    console.log('raw', filteredTripUpdatesRouteIdAPI.length)
-    console.log('by stopId', filteredTripUpdatesStopIdAPI.length)
-    await saveCache("filteredTripUpdatesStopIdAPI.json", filteredTripUpdatesStopIdAPI)
+    const serviceIdAndTripHeadsign = filterServiceIdAndTripHeadsign(tripsCSV, refArrayFromTripUpdatesAPI);
+    console.log('raw', tripsCSV.length)
+    console.log('filter', serviceIdAndTripHeadsign.length)
+    await saveCache(SERVICE_ID_TRIP_HEADSIGN, serviceIdAndTripHeadsign)
 
 
-    // arrayOfElements.map((element) => {
-    //     return { ...element, subElements: element.subElements.filter((subElement) => subElement.surname === 1) }
-    // })
+    // Part 5
+    // Function to get position from Vehicle_Position_API by vehicle.id
+    function filterVehiclePosition(sourceArray, referenceArray) {
+        return referenceArray.map(trip => {
+            return Object.assign({}, {
+                "tripId": trip.tripUpdate?.trip?.tripId,
+                "routeId": trip.tripUpdate?.trip?.routeId,
+                "vehicleId": trip.tripUpdate?.vehicle?.id,
+                "position": sourceArray.filter(vehicle =>
+                    vehicle.vehicle?.vehicle?.id == trip.tripUpdate?.vehicle?.id
+                    // && vehicle[2] == trip.tripUpdate?.trip?.tripId
+                ).map(el => el.vehicle?.position)[0]
+            })
+        })
+    }
+    const vehiclePosition = filterVehiclePosition(vehiclePositionsResponse.entity, refArrayFromTripUpdatesAPI);
+    console.log('raw', vehiclePositionsResponse.entity.length)
+    console.log('filter', vehiclePosition.length)
+    await saveCache(VEHICLE_POSITION, vehiclePosition)
 
 
-    // function filterTripUpdatesByDate(filteredArray, date) {
-    //     return filteredArray.filter(trip => {
-    //         const referenceArrival = trip.tripUpdate.stopTimeUpdate.map(stop => stop.arrival?.time);
-    //         console.log('refAr', referenceArrival)
-    //         return referenceArrival.includes(date)
-    //     })
-    // }
-    // console.log(filterTripUpdatesByDate(filteredTripUpdatesRouteIdAPI, new Date()))
+    // Part 6
+    // Function to merge all results
+    function mergeAllData(targetArray, sourceArray) {
 
-    mergedData = filteredTripUpdatesRouteIdAPI.map(trip => ({
-        "tripId": trip.tripUpdate.trip.tripId,
-        "routeId": trip.tripUpdate.trip.routeId,
-        "vehicle": trip.tripUpdate.vehicle,
-        "stopId": trip.tripUpdate.stopTimeUpdate.map(stop => stop.stopId),
-        "arrival": trip.tripUpdate.stopTimeUpdate.map(stop => stop.arrival?.time),
-        "departure": trip.tripUpdate.stopTimeUpdate.map(stop => stop.departure?.time),
+        const arr1 = targetArray
 
-    }))
+        const arr2 = sourceArray
 
-    // console.log('merged', mergedData)
+        const arr3 = arr1.map((item, i) => Object.assign({}, item, arr2[i]));
+
+        // console.log(arr1)
+        // console.log(arr2)
+        // console.log(arr3);
+        return arr3;
+    }
+    const mergePart1And2 = mergeAllData(scheduledArrivalTime, routeNames)
+    // console.log(mergePart1And2)
+    const mergePart12And3 = mergeAllData(mergePart1And2, serviceIdAndTripHeadsign)
+    const mergeVehiclePositions = mergeAllData(mergePart12And3, vehiclePosition)
+    await saveCache(MERGED_DATA, mergeVehiclePositions)
+
+    console.table(mergeVehiclePositions, ['tripHeadsign', 'liveArrivalTime', 'scheduledArrivalTime', 'routeShortName', 'routeLongName', 'serviceId', 'position'])
+
+
+
+
 
 
 
@@ -186,6 +248,20 @@ async function main() {
         return !isNaN(Date.parse(tempDateTimeAppended));
     }
 
+
+    function checkLessThanInterval(inputDate, dataDate, interval) {
+        try {
+            console.log('dataDate', dataDate)
+            console.log('inputDate', inputDate)
+            console.log(dataDate < inputDate + interval)
+            return dataDate < inputDate + interval
+        } catch (e) {
+            console.log('dataDate', dataDate)
+            console.log('inputDate', inputDate)
+            console.log(parseInt(dataDate) < parseInt(inputDate) + parseInt(interval))
+            return parseInt(dataDate) <= parseInt(inputDate) + parseInt(interval)
+        }
+    }
 
 
     /**
@@ -308,13 +384,6 @@ async function main() {
         // [ ] Sort data based on departure / arrival date
         // [ ] Filter data only for 1 hour from current date
 
-
-        // Request Trip_Upda
-        // Filter Route that has UQLakes
-        // uqLakesRoutes = res.map(route => route).filter(route => route.name == "UQLakes")
-
-        // find all UQ Lakes stop_id
-
         return tripUpdatesCached;
     }
 
@@ -323,41 +392,18 @@ async function main() {
     }
 
     async function readCache(filename) {
-        // try {
-        //     await fs.readFile(filename, "utf8", (err, data) => {
-        //         // console.log(data)
-        //         tripUpdates = data;
-        //     });
-        //     // console.log("Successfully read from cache", content)
-        // } catch (error) {
-        //     console.log("Can't read from cache (fn)", error)
-        // }
-        // return tripUpdates;
-        // return new Promise(function (resolve, reject) {
-        //     fs.createReadStream(filename)
-        //         .on("data", (data) => {
-        //             tmp = data
-        //         })
-        //         .on("end", () => {
-        //             resolve(tmp);
-        //         })
-        //         .on("error", reject);
-        // });
-
         return fs.readFileSync(filename, 'utf-8');
     }
 
-
-
-    async function readCSV(fileName, array) {
+    async function readCSV(fileName, result) {
         return new Promise(function (resolve, reject) {
             fs.createReadStream(fileName)
                 .pipe(csv())
                 .on("data", (data) => {
-                    array.push(data);
+                    result.push(data);
                 })
                 .on("end", () => {
-                    resolve(array);
+                    resolve(result);
                 })
                 .on("error", reject);
         });
@@ -367,7 +413,6 @@ async function main() {
     while (true) {
 
         // Show greeting
-        //
 
         // Obtain user input and validate it
         while (true) {
@@ -387,29 +432,13 @@ async function main() {
 
         await processData(12)
             .then(res => {
-                // //
-                // Prompt "Would you like to search again?"
-                // console.log('res trip cache', tripUpdatesCached)
-                // filterTripUpdatesByRouteID(res, filteredTripsCSV);
-
-                // Read from cache
                 isSearchAgain = prompt(QUIT_APP_PROMPT)
             })
-
-
-        // For each result within 10 minutes from the current time:
-        // - The short & long names for the route
-        // - The service id for the trip
-        // - Destination sign
-        // - The scheduled arrival time of the vehicle
-        // - The live arrival time of the vehicle
-        // - The love geographic location of the vehicle
 
         if (isSearchAgain && isSearchAgain == 'n') {
             //
             break;
         }
-
     }
 }
 

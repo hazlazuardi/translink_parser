@@ -109,3 +109,4 @@ dist
 # Static Data
 static_data/
 cached_data/
+filtered_data/
