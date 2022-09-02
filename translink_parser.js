@@ -22,6 +22,7 @@ const TIME_PROMPT = "What time will you depart UQ Lakes station by bus? ";
 const GOODBYE_MESSAGE = "Thanks for using the UQ Lakes station bus tracker!"
 const QUIT_APP_PROMPT = "Would you like to search again? "
 const INVALID_DATE_MESSAGE = 'Please input a valid date!'
+const INVALID_DATE_PAST_MESSAGE = "The date should not be in the past!"
 const TRIP_NOT_FOUND = (inputDateMsg) => `Sorry, there's no trip scheduled on ${new Date(inputDateMsg * 1000).toLocaleString('en-GB', { 'timeZone': 'Australia/Queensland' })}`
 const TRIP_FOUND_NUMBER = (length, inputDateMsg) => `Found ${length} trips within 10 minutes of ${new Date(inputDateMsg * 1000).toLocaleString('en-GB', { 'timeZone': 'Australia/Queensland' })}`
 
@@ -134,10 +135,21 @@ async function main() {
     */
     function validateInput(date, time) {
         // Check if date and time are number and is correctly formatted
-        if (isNaN(date) && !date.includes('-') || isNaN(time) && !time.includes(':')) return false
+        if (isNaN(date) && !date.includes('-') || isNaN(time) && !time.includes(':')) {
+            console.log(INVALID_DATE_MESSAGE)
+            return false
+        }
 
         // Convert Date and Time input to validate using Date.parse(yyyy-mm-ddThh:mm)
         const tempDateTimeAppended = date + 'T' + time + ':00';
+
+        const currentDate = Math.floor(Date.now() / 1000);
+        const inputDate = toEpoch(date, time);
+
+        if (inputDate < currentDate) {
+            console.log(INVALID_DATE_PAST_MESSAGE);
+            return false;
+        }
 
         // Validate Date and Time input using Date.parse()
         return !isNaN(Date.parse(tempDateTimeAppended));
@@ -276,7 +288,7 @@ async function main() {
                 INPUT_DATE = toEpoch(DATE_INPUT, TIME_INPUT)
                 break;
             }
-            console.log(INVALID_DATE_MESSAGE)
+            // console.log(INVALID_DATE_MESSAGE)
         }
 
 
