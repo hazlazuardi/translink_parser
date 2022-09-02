@@ -5,7 +5,6 @@ const prompt = promptSync({
 });
 import fetch from "node-fetch";
 import fs from 'fs';
-// import { fs as fsB } from 'fs';
 import { parse as csv } from "csv-parse";
 
 import { filterTripUpdatesByStopIdAndDate, filterScheduledArrivalTime, filterServiceIdAndTripHeadsign, filterRouteNames, filterVehiclePosition, mergeAllData } from "./filterFunctions.js";
@@ -39,7 +38,6 @@ const STATIC_STOP_TIMES_FILENAME = `${STATIC_DATA_PATH}/stop_times.txt`
 // filtered data
 const FILTERED_DATA_PATH = './filtered_data';
 const MERGED_DATA = `${FILTERED_DATA_PATH}/merged.json`
-// const REF_ARRAY_CACHE = `${FILTERED_DATA_PATH}/refArray.json`
 
 
 
@@ -64,10 +62,8 @@ async function main() {
         .then(res => {
             tripUpdatesResponse = JSON.parse(res)
             isValidCacheTripUpdates = validateCache(parseInt(tripUpdatesResponse.header?.timestamp) * 1000)
-            // console.log("read cache", tripUpdatesResponse.header)
         })
         .catch(e => console.log("Can't read from cache", e))
-    // console.log('res from cache', tripUpdatesResponse)
 
     let vehiclePositionsResponse;
     let isValidCacheVehiclePositions;
@@ -75,28 +71,22 @@ async function main() {
         .then(res => {
             vehiclePositionsResponse = JSON.parse(res)
             isValidCacheVehiclePositions = validateCache(parseInt(vehiclePositionsResponse.header?.timestamp) * 1000)
-            // console.log("read cache", res)
         })
         .catch(e => console.log("Can't read from cache", e))
-    // console.log('res from cache', tripUpdatesResponse)
 
 
     // Get CSV Data from local
     let tripsCSV = []
     await readCSV(STATIC_TRIPS_FILENAME, tripsCSV)
-    // console.log('csvtrip', tripsCSV.slice(1))
     let routesCSV = []
     await readCSV(STATIC_ROUTES_FILENAME, routesCSV)
-    // console.log('csvtrip', routesCSV.slice(1))
     let stopTimesCSV = []
     await readCSV(STATIC_STOP_TIMES_FILENAME, stopTimesCSV)
-    // console.log('stopTimesCSV', stopTimesCSV.slice(1))
 
 
 
     // Prepare data right away
     const isValidCache = isValidCacheTripUpdates && isValidCacheVehiclePositions
-    // console.log('all cache validity: ', isValidCache)
     // Load from cache else fetch from API
     if (!isValidCache) {
         // Fetch all data from API
@@ -105,7 +95,6 @@ async function main() {
         await fetchData(TRIP_UPDATES_URL)
             .then(res => {
                 tripUpdates = res.entity;
-                // console.log('res trip from API', tripUpdates)
                 saveCache(TRIP_UPDATES_FILENAME, res)
             })
             .catch(e => {
@@ -116,7 +105,6 @@ async function main() {
         await fetchData(VEHICLE_POSITIONS_URL)
             .then(res => {
                 vehiclePositions = res.entity;
-                // console.log('res vehicle from API', vehiclePositions)
                 saveCache(VEHICLE_POSITIONS_FILENAME, res)
             })
             .catch(e => {
@@ -162,7 +150,6 @@ async function main() {
     * @returns {Date} The dateTime in epoch
     */
     function toEpoch(date, time) {
-        // console.log('toEpochFunc', new Date(date + 'T' + time) / 1000)
         return new Date(date + 'T' + time) / 1000
     }
 
@@ -175,15 +162,12 @@ async function main() {
     function validateCache(dataTimestamp) {
         // Get current DateTime as miliseconds
         let currentDateTime = new Date()
-        // console.log('current ', currentDateTime)
 
         // Get timestamp as miliseconds
         let cacheDateTime = new Date(dataTimestamp)
-        // console.log('cache ', cacheDateTime)
 
         // Subtract timestamp with currentDateTime
         let cacheAge = (currentDateTime.getTime() - cacheDateTime.getTime())
-        // console.log('age ', cacheAge / (1000 * 60))
 
         // Return true if minutes < 5
         return (cacheAge / (1000 * 60)) < CACHE_INTERVAL
@@ -208,11 +192,9 @@ async function main() {
     */
     async function processData(dateTime) {
         const refArrayFromTripUpdatesAPI = filterTripUpdatesByStopIdAndDate(tripUpdatesResponse, STATION_STOP_ID, dateTime);
-        // await saveCache(REF_ARRAY_CACHE, refArrayFromTripUpdatesAPI)
         if (refArrayFromTripUpdatesAPI.length > 0) {
             console.log(TRIP_FOUND_NUMBER(refArrayFromTripUpdatesAPI.length, dateTime))
             const scheduledArrivalTime = filterScheduledArrivalTime(stopTimesCSV, refArrayFromTripUpdatesAPI);
-            await saveCache(`${FILTERED_DATA_PATH}/scheduled_arrival.json`, scheduledArrivalTime)
             const routeNames = filterRouteNames(routesCSV, refArrayFromTripUpdatesAPI);
             const serviceIdAndTripHeadsign = filterServiceIdAndTripHeadsign(tripsCSV, refArrayFromTripUpdatesAPI);
             const vehiclePosition = filterVehiclePosition(vehiclePositionsResponse.entity, refArrayFromTripUpdatesAPI);
@@ -288,13 +270,11 @@ async function main() {
                 INPUT_DATE = toEpoch(DATE_INPUT, TIME_INPUT)
                 break;
             }
-            // console.log(INVALID_DATE_MESSAGE)
         }
 
 
         await processData(INPUT_DATE)
             .then(res => {
-                // console.log('inputEpoch', INPUT_DATE)
                 if (res.length > 0) {
                     console.table(res, ['tripHeadsign', 'liveArrivalTime', 'scheduledArrivalTime', 'routeShortName', 'routeLongName', 'serviceId', 'position'])
                 } else {
