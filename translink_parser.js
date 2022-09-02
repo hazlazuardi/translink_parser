@@ -23,8 +23,9 @@ const GOODBYE_MESSAGE = "Thanks for using the UQ Lakes station bus tracker!"
 const QUIT_APP_PROMPT = "Would you like to search again? "
 const INVALID_DATE_MESSAGE = 'Please input a valid date!'
 const INVALID_DATE_PAST_MESSAGE = "The date should not be in the past!"
-const TRIP_NOT_FOUND = (inputDateMsg) => `Sorry, there's no trip scheduled on ${new Date(inputDateMsg * 1000).toLocaleString('en-GB', { 'timeZone': 'Australia/Queensland' })}`
-const TRIP_FOUND_NUMBER = (length, inputDateMsg) => `Found ${length} trips within 10 minutes of ${new Date(inputDateMsg * 1000).toLocaleString('en-GB', { 'timeZone': 'Australia/Queensland' })}`
+const TRIP_NOT_FOUND = (inputDateMsg) => `Sorry, there's no trip scheduled within 10 minutes of ${new Date(inputDateMsg * 1000).toLocaleString('en-GB', { 'timeZone': 'Australia/Queensland' })}`
+const TRIP_FOUND_NUMBER = (length, inputDateMsg) =>
+    `\nFound ${length} trips within 10 minutes of ${new Date(inputDateMsg * 1000).toLocaleString('en-GB', { 'timeZone': 'Australia/Queensland' })} based on the live arrival time data`
 
 // Paths
 const CACHE_DATA_PATH = './cached_data'
@@ -44,7 +45,7 @@ const MERGED_DATA = `${FILTERED_DATA_PATH}/merged.json`
 
 const CACHE_INTERVAL = 5
 
-const STATION_STOP_ID = "1882";
+export const STATION_STOP_ID = "1882";
 let INPUT_DATE;
 let DATE_INPUT;
 let TIME_INPUT;
@@ -100,6 +101,7 @@ async function main() {
     if (!isValidCache) {
         // Fetch all data from API
         // Fetch trip updates data
+        console.log("Updating data in cache...")
         await fetchData(TRIP_UPDATES_URL)
             .then(res => {
                 tripUpdates = res.entity;
@@ -120,9 +122,6 @@ async function main() {
             .catch(e => {
                 console.log("Can't Fetch Vehicle Positions from API", e)
             })
-    } else {
-        console.log('res trip updates from json');
-        console.log('res vehicle positions from json');
     }
 
 
@@ -210,8 +209,8 @@ async function main() {
     async function processData(dateTime) {
         const refArrayFromTripUpdatesAPI = filterTripUpdatesByStopIdAndDate(tripUpdatesResponse, STATION_STOP_ID, dateTime);
         // await saveCache(REF_ARRAY_CACHE, refArrayFromTripUpdatesAPI)
-        console.log(TRIP_FOUND_NUMBER(refArrayFromTripUpdatesAPI.length, dateTime))
         if (refArrayFromTripUpdatesAPI.length > 0) {
+            console.log(TRIP_FOUND_NUMBER(refArrayFromTripUpdatesAPI.length, dateTime))
             const scheduledArrivalTime = filterScheduledArrivalTime(stopTimesCSV, refArrayFromTripUpdatesAPI);
             await saveCache(`${FILTERED_DATA_PATH}/scheduled_arrival.json`, scheduledArrivalTime)
             const routeNames = filterRouteNames(routesCSV, refArrayFromTripUpdatesAPI);
@@ -253,6 +252,7 @@ async function main() {
     * @returns {Promise} - return a Promise
     */
     async function readCSV(fileName, result) {
+        console.log("Reading data from cache...")
         return new Promise(function (resolve, reject) {
             fs.createReadStream(fileName)
                 .pipe(csv())

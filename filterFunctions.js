@@ -1,3 +1,5 @@
+import { STATION_STOP_ID } from "./translink_parser.js"
+
 // Part 1
 /**
 * This function filters Trip Updates API by stopId and Date from input
@@ -47,7 +49,7 @@ export function filterScheduledArrivalTime(csvArray, referenceArray) {
             "liveArrivalTime": new Date(parseInt(trip.tripUpdate?.stopAtUQLakesStation[0]?.arrival?.time) * 1000).toLocaleTimeString('it-IT'),
             "scheduledArrivalTime": csvArray.filter(stop =>
                 stop[0] == trip.tripUpdate?.trip?.tripId
-                && stop[3] == 1882
+                && stop[3] == STATION_STOP_ID
             ).map(el => el[1]).toString()
         })
     })
