@@ -107,6 +107,7 @@ dist
 .DS_Store
 
 # Static Data
-static_data/
-cached_data/
-filtered_data/
+# static_data/
+# cached_data/
+# filtered_data/
+static_data/stop_times.txt

@@ -192,6 +192,7 @@ async function main() {
     */
     async function processData(dateTime) {
         const refArrayFromTripUpdatesAPI = filterTripUpdatesByStopIdAndDate(tripUpdatesResponse, STATION_STOP_ID, dateTime);
+        console.log(refArrayFromTripUpdatesAPI)
         if (refArrayFromTripUpdatesAPI.length > 0) {
             console.log(TRIP_FOUND_NUMBER(refArrayFromTripUpdatesAPI.length, dateTime))
             const scheduledArrivalTime = filterScheduledArrivalTime(stopTimesCSV, refArrayFromTripUpdatesAPI);
@@ -272,6 +273,7 @@ async function main() {
             }
         }
 
+        console.log(INPUT_DATE)
 
         await processData(INPUT_DATE)
             .then(res => {

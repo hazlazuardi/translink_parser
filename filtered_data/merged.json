@@ -1,0 +1,92 @@
+[
+    {
+        "tripId": "21733508-BT 22_23-31334",
+        "routeId": "169-2715",
+        "liveArrivalTime": "18:27:13",
+        "scheduledArrivalTime": "18:28:00",
+        "routeShortName": "",
+        "routeLongName": "",
+        "serviceId": "",
+        "tripHeadsign": "",
+        "vehicleId": "-1366625436_1621",
+        "position": {
+            "latitude": -27.577888,
+            "longitude": 153.10144
+        }
+    },
+    {
+        "tripId": "21733690-BT 22_23-31334",
+        "routeId": "66-2715",
+        "liveArrivalTime": "18:30:26",
+        "scheduledArrivalTime": "18:31:00",
+        "routeShortName": "",
+        "routeLongName": "",
+        "serviceId": "",
+        "tripHeadsign": "",
+        "vehicleId": "-1366625436_1604",
+        "position": {
+            "latitude": -27.449917,
+            "longitude": 153.0259
+        }
+    },
+    {
+        "tripId": "21731336-BT 22_23-31334",
+        "routeId": "192-2715",
+        "liveArrivalTime": "18:32:33",
+        "scheduledArrivalTime": "18:32:00",
+        "routeShortName": "",
+        "routeLongName": "",
+        "serviceId": "",
+        "tripHeadsign": "",
+        "vehicleId": "-1366625436_2012",
+        "position": {
+            "latitude": -27.46225,
+            "longitude": 153.03159
+        }
+    },
+    {
+        "tripId": "21733689-BT 22_23-31334",
+        "routeId": "66-2715",
+        "liveArrivalTime": "18:26:26",
+        "scheduledArrivalTime": "18:27:00",
+        "routeShortName": "",
+        "routeLongName": "",
+        "serviceId": "",
+        "tripHeadsign": "",
+        "vehicleId": "-1366625436_1643",
+        "position": {
+            "latitude": -27.444498,
+            "longitude": 153.02898
+        }
+    },
+    {
+        "tripId": "21733384-BT 22_23-31334",
+        "routeId": "29-2715",
+        "liveArrivalTime": "18:31:55",
+        "scheduledArrivalTime": "18:34:00",
+        "routeShortName": "",
+        "routeLongName": "",
+        "serviceId": "",
+        "tripHeadsign": "",
+        "vehicleId": "-1366625436_2907",
+        "position": {
+            "latitude": -27.484638,
+            "longitude": 153.03595
+        }
+    },
+    {
+        "tripId": "21731440-BT 22_23-31334",
+        "routeId": "209-2715",
+        "liveArrivalTime": "18:29:44",
+        "scheduledArrivalTime": "18:34:00",
+        "routeShortName": "",
+        "routeLongName": "",
+        "serviceId": "",
+        "tripHeadsign": "",
+        "vehicleId": "-1366625436_1869",
+        "position": {
+            "latitude": -27.503387,
+            "longitude": 153.10323
+        }
+    }
+]
