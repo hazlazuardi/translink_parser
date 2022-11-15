@@ -94,7 +94,7 @@ async function main() {
         console.log("Updating data in cache...")
         await fetchData(TRIP_UPDATES_URL)
             .then(res => {
-                tripUpdates = res.entity;
+                tripUpdatesResponse = res;
                 saveCache(TRIP_UPDATES_FILENAME, res)
             })
             .catch(e => {
@@ -104,7 +104,7 @@ async function main() {
         // Fetch vehicle positions data
         await fetchData(VEHICLE_POSITIONS_URL)
             .then(res => {
-                vehiclePositions = res.entity;
+                vehiclePositionsResponse = res;
                 saveCache(VEHICLE_POSITIONS_FILENAME, res)
             })
             .catch(e => {
